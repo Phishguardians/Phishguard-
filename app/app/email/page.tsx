@@ -32,16 +32,6 @@ import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'fir
 interface EmailScanResult {
   prediction: 'Fake' | 'Legit'
   confidence: number
-  threat_level?: string
-  risk_score?: number
-  analysis?: {
-    sender_reputation?: string
-    content_analysis?: string[]
-    domain_suspicious?: boolean
-    phishing_indicators?: string[]
-    urgency_keywords?: string[]
-    suspicious_links?: number
-  }
 }
 
 interface FirebaseEmailRecord {
@@ -50,8 +40,6 @@ interface FirebaseEmailRecord {
   sender_domain: string
   prediction: 'Fake' | 'Legit'
   confidence: number
-  threat_level?: string
-  risk_score?: number
   timestamp: ReturnType<typeof serverTimestamp>
   user_id: string
 }
@@ -77,11 +65,8 @@ export default function EmailScannerPage() {
           sender_domain: senderDomain,
           prediction: scanResult.prediction,
           confidence: scanResult.confidence,
-          threat_level: scanResult.threat_level,
-          risk_score: scanResult.risk_score,
           timestamp: serverTimestamp(),
-          user_id: user.uid,
-          analysis: scanResult.analysis
+          user_id: user.uid
         })
         console.log('Email scan result saved to Firebase')
       } catch (error) {
@@ -94,8 +79,6 @@ export default function EmailScannerPage() {
           sender_domain: senderDomain,
           prediction: scanResult.prediction,
           confidence: scanResult.confidence,
-          threat_level: scanResult.threat_level,
-          risk_score: scanResult.risk_score,
           timestamp: new Date().toISOString(),
           user_id: user.uid
         }
@@ -111,8 +94,6 @@ export default function EmailScannerPage() {
         sender_domain: senderDomain,
         prediction: scanResult.prediction,
         confidence: scanResult.confidence,
-        threat_level: scanResult.threat_level,
-        risk_score: scanResult.risk_score,
         timestamp: new Date().toISOString(),
         user_id: 'anonymous'
       }
@@ -147,8 +128,6 @@ export default function EmailScannerPage() {
             sender_domain: doc.data().sender_domain || '',
             prediction: doc.data().prediction || 'Legit',
             confidence: doc.data().confidence || 0,
-            threat_level: doc.data().threat_level,
-            risk_score: doc.data().risk_score,
             timestamp: doc.data().timestamp,
             user_id: doc.data().user_id || ''
           })) as FirebaseEmailRecord[]
@@ -212,17 +191,7 @@ export default function EmailScannerPage() {
         
         const apiResult: EmailScanResult = {
           prediction: data.prediction === 'Safe' || data.prediction === 'Legit' ? 'Legit' : 'Fake',
-          confidence: data.confidence || Math.random() * 30 + 70,
-          threat_level: data.threat_level || (data.prediction === 'Safe' ? 'Low' : 'High'),
-          risk_score: data.risk_score || Math.floor(Math.random() * 100),
-          analysis: {
-            sender_reputation: data.analysis?.sender_reputation || 'Unknown',
-            content_analysis: data.analysis?.content_analysis || [],
-            domain_suspicious: data.analysis?.domain_suspicious || false,
-            phishing_indicators: data.analysis?.phishing_indicators || [],
-            urgency_keywords: data.analysis?.urgency_keywords || [],
-            suspicious_links: data.analysis?.suspicious_links || 0
-          }
+          confidence: data.confidence || 0.5
         }
         
         setResult(apiResult)
@@ -230,67 +199,14 @@ export default function EmailScannerPage() {
         // Save to Firebase if user is authenticated
         await saveToFirebase(textContent, senderDomain, apiResult)
       } catch (apiError) {
-        // Fallback to smart analysis if API is not available
-        console.log('API not available, using local analysis:', apiError)
-        
-        const isSuspicious = 
-          textContent.toLowerCase().includes('urgent') ||
-          textContent.toLowerCase().includes('verify') ||
-          textContent.toLowerCase().includes('suspended') ||
-          textContent.toLowerCase().includes('click here') ||
-          textContent.toLowerCase().includes('congratulations') ||
-          textContent.toLowerCase().includes('winner') ||
-          textContent.toLowerCase().includes('lottery') ||
-          textContent.toLowerCase().includes('free money') ||
-          senderDomain.includes('temp') ||
-          senderDomain.includes('fake') ||
-          senderDomain.includes('scam') ||
-          senderDomain.endsWith('.tk') ||
-          senderDomain.endsWith('.ml')
-        
-        const mockResult: EmailScanResult = {
-          prediction: isSuspicious ? 'Fake' : 'Legit',
-          confidence: isSuspicious ? Math.random() * 20 + 80 : Math.random() * 15 + 85,
-          threat_level: isSuspicious ? 'High' : 'Low',
-          risk_score: isSuspicious ? Math.floor(Math.random() * 40 + 60) : Math.floor(Math.random() * 30 + 10),
-          analysis: {
-            sender_reputation: isSuspicious ? 'Poor' : 'Good',
-            content_analysis: isSuspicious ? [
-              'Urgency language detected',
-              'Suspicious call-to-action',
-              'Generic greeting'
-            ] : ['Professional tone', 'Standard formatting'],
-            domain_suspicious: isSuspicious,
-            phishing_indicators: isSuspicious ? [
-              'Suspicious domain',
-              'Urgency tactics',
-              'Request for personal info'
-            ] : [],
-            urgency_keywords: isSuspicious ? ['urgent', 'immediate', 'expires'] : [],
-            suspicious_links: isSuspicious ? Math.floor(Math.random() * 3 + 1) : 0
-          }
-        }
-        
-        setResult(mockResult)
-        
-        // Save to Firebase if user is authenticated
-        await saveToFirebase(textContent, senderDomain, mockResult)
+        console.error('API not available:', apiError)
+        throw apiError
       }
     } catch (err) {
       console.error('Error scanning email:', err)
       const errorResult: EmailScanResult = {
         prediction: 'Fake',
-        confidence: 0,
-        threat_level: 'Unknown',
-        risk_score: 100,
-        analysis: {
-          sender_reputation: 'Unknown',
-          content_analysis: ['Unable to analyze - treat as suspicious'],
-          domain_suspicious: true,
-          phishing_indicators: ['Analysis failed'],
-          urgency_keywords: [],
-          suspicious_links: 0
-        }
+        confidence: 0
       }
       setResult(errorResult)
       
@@ -378,29 +294,25 @@ export default function EmailScannerPage() {
             </div>
             
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white mb-4 sm:mb-6 tracking-tight leading-tight">
-              Advanced{' '}
+              Email{' '}
               <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Email Scanner
+                Scam Detector
               </span>
             </h1>
             
             <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-300 max-w-xs sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto leading-relaxed px-4">
-              AI-powered email analysis with real-time phishing detection and comprehensive security assessment
+              Basic machine learning classification for email content and sender domain analysis
             </p>
 
-            {/* Status Indicators */}
+            {/* Status Indicators - Only show implemented features */}
             <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-6 sm:mt-8 px-4">
               <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-cyan-400/20">
                 <Brain className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 animate-pulse" />
-                <span className="text-xs sm:text-sm text-gray-300">AI Analysis</span>
+                <span className="text-xs sm:text-sm text-gray-300">ML Classification</span>
               </div>
               <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-blue-400/20">
-                <Database className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
-                <span className="text-xs sm:text-sm text-gray-300">Email Intel</span>
-              </div>
-              <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-purple-400/20">
-                <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 animate-pulse" />
-                <span className="text-xs sm:text-sm text-gray-300">Real-time</span>
+                <AtSign className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                <span className="text-xs sm:text-sm text-gray-300">Domain Check</span>
               </div>
               {user && (
                 <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-green-400/20">
@@ -506,7 +418,7 @@ export default function EmailScannerPage() {
                       <h3 className="text-xl sm:text-2xl font-bold text-white">Email Analysis Results</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       {/* Email Status */}
                       <div className={`p-4 sm:p-6 rounded-2xl border ${
                         result.prediction === 'Legit' ? 
@@ -515,13 +427,13 @@ export default function EmailScannerPage() {
                       }`}>
                         <div className="flex items-center gap-2 mb-2">
                           <Target className={`w-5 h-5 ${result.prediction === 'Legit' ? 'text-green-400' : 'text-red-400'}`} />
-                          <span className="font-semibold text-white">Status</span>
+                          <span className="font-semibold text-white">Classification</span>
                         </div>
                         <p className={`text-lg font-bold ${result.prediction === 'Legit' ? 'text-green-400' : 'text-red-400'}`}>
                           {result.prediction}
                         </p>
                         <p className="text-sm text-gray-300 mt-1">
-                          Threat Level: {result.threat_level || 'Low'}
+                          Email appears {result.prediction === 'Legit' ? 'legitimate' : 'suspicious'}
                         </p>
                       </div>
 
@@ -532,108 +444,16 @@ export default function EmailScannerPage() {
                           <span className="font-semibold text-white">Confidence</span>
                         </div>
                         <p className="text-lg font-bold text-blue-400">
-                          {result.confidence.toFixed(1)}%
+                          {(result.confidence * 100).toFixed(1)}%
                         </p>
                         <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
                           <div 
                             className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${result.confidence}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      {/* Risk Score */}
-                      <div className="p-4 sm:p-6 rounded-2xl bg-purple-500/10 border border-purple-500/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Shield className="w-5 h-5 text-purple-400" />
-                          <span className="font-semibold text-white">Risk Score</span>
-                        </div>
-                        <p className="text-lg font-bold text-purple-400">
-                          {result.risk_score || 0}/100
-                        </p>
-                        <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
-                          <div 
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              (result.risk_score || 0) > 70 ? 'bg-red-500' : 
-                              (result.risk_score || 0) > 40 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${result.risk_score || 0}%` }}
+                            style={{ width: `${result.confidence * 100}%` }}
                           ></div>
                         </div>
                       </div>
                     </div>
-
-                    {/* Additional Analysis */}
-                    {result.analysis && (
-                      <div className="mt-6 space-y-4">
-                        {/* Content Analysis */}
-                        <div className="p-4 sm:p-6 bg-zinc-900/30 rounded-2xl border border-zinc-600/30">
-                          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-                            <Fingerprint className="w-5 h-5 text-purple-400" />
-                            Content Analysis
-                          </h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-400">Sender Reputation:</span>
-                              <span className={`ml-2 ${result.analysis.sender_reputation === 'Good' ? 'text-green-400' : 
-                                result.analysis.sender_reputation === 'Poor' ? 'text-red-400' : 'text-yellow-400'}`}>
-                                {result.analysis.sender_reputation}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Domain Suspicious:</span>
-                              <span className={`ml-2 ${result.analysis.domain_suspicious ? 'text-red-400' : 'text-green-400'}`}>
-                                {result.analysis.domain_suspicious ? 'Yes' : 'No'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Suspicious Links:</span>
-                              <span className="text-white ml-2">{result.analysis.suspicious_links || 0}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Urgency Keywords:</span>
-                              <span className="text-white ml-2">{result.analysis.urgency_keywords?.length || 0}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Content Analysis Details */}
-                        {result.analysis.content_analysis && result.analysis.content_analysis.length > 0 && (
-                          <div className="p-4 sm:p-6 bg-blue-500/5 rounded-2xl border border-blue-500/20">
-                            <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-                              <Eye className="w-5 h-5 text-blue-400" />
-                              Content Observations
-                            </h4>
-                            <div className="space-y-2">
-                              {result.analysis.content_analysis.map((analysis, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm text-blue-400">
-                                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                                  {analysis}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Phishing Indicators */}
-                        {result.analysis.phishing_indicators && result.analysis.phishing_indicators.length > 0 && (
-                          <div className="p-4 sm:p-6 bg-red-500/5 rounded-2xl border border-red-500/20">
-                            <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-                              <AlertTriangle className="w-5 h-5 text-red-400" />
-                              Phishing Indicators
-                            </h4>
-                            <div className="space-y-2">
-                              {result.analysis.phishing_indicators.map((indicator, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm text-red-400">
-                                  <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div>
-                                  {indicator}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -650,7 +470,7 @@ export default function EmailScannerPage() {
                 </h3>
                 <div className="space-y-3">
                   <button 
-                    onClick={() => result && copyToClipboard(`Email: ${senderDomain}\nStatus: ${result.prediction}\nConfidence: ${result.confidence.toFixed(1)}%\nRisk Score: ${result.risk_score}/100`)}
+                    onClick={() => result && copyToClipboard(`Email: ${senderDomain}\nStatus: ${result.prediction}\nConfidence: ${(result.confidence * 100).toFixed(1)}%`)}
                     className="w-full bg-zinc-700/50 hover:bg-zinc-600/50 text-white rounded-xl px-4 py-3 transition-all duration-300 flex items-center gap-2 text-sm"
                   >
                     <Copy className="w-4 h-4" />
@@ -703,9 +523,7 @@ export default function EmailScannerPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span>Confidence: {scan.confidence.toFixed(1)}%</span>
-                          <span>•</span>
-                          <span>Risk: {scan.risk_score || 0}/100</span>
+                          <span>Confidence: {(scan.confidence * 100).toFixed(1)}%</span>
                         </div>
                       </div>
                     ))}
@@ -713,20 +531,20 @@ export default function EmailScannerPage() {
                 </div>
               )}
 
-              {/* Security Features */}
+              {/* Available Features */}
               <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 border border-zinc-700/50">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-green-400" />
-                  Email Security Features
+                  Available Features
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Eye className="w-4 h-4 text-cyan-400" />
-                    Content analysis
+                    <Brain className="w-4 h-4 text-cyan-400" />
+                    ML text classification
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Lock className="w-4 h-4 text-blue-400" />
-                    Domain verification
+                    <AtSign className="w-4 h-4 text-blue-400" />
+                    Sender domain analysis
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
                     <Brain className="w-4 h-4 text-purple-400" />
