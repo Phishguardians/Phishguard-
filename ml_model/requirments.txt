@@ -6,3 +6,5 @@ pandas
 python-multipart
 PyMuPDF
 python-docx
+
+npx shadcn@latest init
