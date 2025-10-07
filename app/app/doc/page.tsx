@@ -147,7 +147,7 @@ export default function DocScanPage() {
       })
     }
 
-    // Monitor authentication state
+    
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       console.log('Auth state changed:', currentUser ? `User logged in: ${currentUser.uid}` : 'User logged out')
       setUser(currentUser)
