@@ -116,7 +116,7 @@ export default function DocScanPage() {
         localStorage.setItem('docScanHistory', JSON.stringify(localHistory.slice(0, 10)))
         console.log('Saved to localStorage as fallback')
       }
-    } else {
+    } else { 
       console.log('No user authenticated, saving to localStorage')
       // Save to localStorage for non-authenticated users
       const localHistory = JSON.parse(localStorage.getItem('docScanHistory') || '[]')
