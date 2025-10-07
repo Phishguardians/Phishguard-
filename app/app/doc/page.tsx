@@ -182,7 +182,7 @@ export default function DocScanPage() {
         return () => unsubscribeScans()
       } else {
         console.log('No user authenticated, loading local history')
-        // Load local history for non-authenticated users
+   
         loadLocalHistory()
       }
     })
