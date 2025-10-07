@@ -99,7 +99,7 @@ export default function DocScanPage() {
       } catch (error) {
         console.error('Error saving to Firebase:', error)
         
-        // Fallback: Save to localStorage if Firebase fails
+        
         const localHistory = JSON.parse(localStorage.getItem('docScanHistory') || '[]')
         const newScan = {
           id: Date.now().toString(),
