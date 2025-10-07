@@ -72,7 +72,7 @@ export default function DocScanPage() {
   const [localHistory, setLocalHistory] = useState<FirebaseDocRecord[]>([])
   const [dragActive, setDragActive] = useState(false)
 
-  // Function to save scan to Firebase
+ 
   const saveToFirebase = async (filename: string, scanResult: DocScanResult) => {
     console.log('saveToFirebase called with:', { filename, scanResult, user: user?.uid })
     
