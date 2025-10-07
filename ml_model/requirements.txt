@@ -1,11 +1,20 @@
 fastapi
 uvicorn
 scikit-learn
-joblib
 pandas
-python-multipart
+numpy
+joblib
 PyMuPDF
 python-docx
+python-multipart
+pillow
+pyzbar
+tldextract
+validators
 
-
-
+opencv-python
+pillow
+pyzbar
+tldextract
+joblib
+numpy
