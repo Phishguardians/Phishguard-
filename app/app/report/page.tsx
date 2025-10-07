@@ -286,9 +286,15 @@ export default function ReportPage() {
                             : 'border-slate-600/50 focus:border-cyan-400 focus:ring-cyan-500/20 hover:border-slate-500/70'
                         }`}
                       >
-                        <option value="Phishing"> Phishing (Fake login pages)</option>
-                <option value="Fake Tech Support"> Fake Tech Support</option>
-                <option value="Financial Scam"> Financial Scam</option>
+                        <option value="" disabled>Select a scam category</option>
+                        <option value="Phishing">Phishing (Fake login pages)</option>
+                        <option value="Fake Tech Support">Fake Tech Support</option>
+                        <option value="Financial Scam">Financial Scam</option>
+                        <option value="Romance Scam">Romance Scam</option>
+                        <option value="Job Scam">Job/Internship Scam</option>
+                        <option value="Investment Scam">Investment/Crypto Scam</option>
+                        <option value="Shopping Scam">Fake Shopping Site</option>
+                        <option value="Other">Other</option>
                       </select>
                       <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                     </div>
