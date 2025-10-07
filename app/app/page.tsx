@@ -190,7 +190,7 @@ export default function HomePage() {
               <div className="flex items-center gap-1 xs:gap-2 sm:gap-3 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 sm:py-3 border border-zinc-700/50 hover:border-cyan-400/30 transition-all duration-300">
                 <Users className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-cyan-400" />
                 <span className="text-xs xs:text-xs sm:text-sm lg:text-base">
-                  Trusted by <span className="text-cyan-400 font-semibold">50+</span> users
+                  Trusted by <span className="text-cyan-400 font-semibold">2+</span> users
                 </span>
                 <Heart className="w-3 h-3 xs:w-4 xs:h-4 text-pink-400 animate-pulse" />
               </div>
