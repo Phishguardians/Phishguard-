@@ -1,4 +1,4 @@
-
+# app/routers/doc_scan.py
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 import os
@@ -37,7 +37,7 @@ async def predict_doc(file: UploadFile = File(...)):
         return JSONResponse({
             "prediction": "Legit" if label == 1 else "Fake",
             "confidence": round(max(prob), 3),
-            "extracted_text": extracted_text.strip()
+            "extracted_text": extracted_text.strip()  # <--- Include text here
         })
 
     except Exception as e:

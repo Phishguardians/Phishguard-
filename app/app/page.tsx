@@ -70,7 +70,7 @@ export default function HomePage() {
   ]
 
   const stats = [
-    { number: "2+", label: "URLs Scanned", icon: Search },
+    { number: "50+", label: "URLs Scanned", icon: Search },
     { number: "231+", label: "Threats Blocked", icon: Shield },
     { number: "99.9%", label: "Accuracy Rate", icon: Target },
     { number: "24/7", label: "Protection", icon: Clock }
@@ -165,7 +165,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            
+            {/* Enhanced Stats Grid - Mobile Optimized */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 xs:gap-3 sm:gap-6 lg:gap-8 mt-8 xs:mt-12 sm:mt-16 lg:mt-20 px-2 xs:px-4 max-w-6xl mx-auto">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center group cursor-pointer">
@@ -186,11 +186,12 @@ export default function HomePage() {
               ))}
             </div>
 
+            {/* Enhanced Social Proof - Mobile Optimized */}
             <div className="flex flex-col xs:flex-row items-center justify-center gap-2 xs:gap-3 sm:gap-6 lg:gap-8 mt-8 xs:mt-12 sm:mt-16 text-zinc-400 px-2 xs:px-4">
               <div className="flex items-center gap-1 xs:gap-2 sm:gap-3 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 sm:py-3 border border-zinc-700/50 hover:border-cyan-400/30 transition-all duration-300">
                 <Users className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 text-cyan-400" />
                 <span className="text-xs xs:text-xs sm:text-sm lg:text-base">
-                  Trusted by <span className="text-cyan-400 font-semibold">50+</span> users
+                  Trusted by <span className="text-cyan-400 font-semibold">2+</span> users
                 </span>
                 <Heart className="w-3 h-3 xs:w-4 xs:h-4 text-pink-400 animate-pulse" />
               </div>
