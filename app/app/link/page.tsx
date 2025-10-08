@@ -9,52 +9,38 @@ import {
   Loader,
   Link as LinkIcon,
   Zap,
-  Eye,
   Clock,
   Activity,
   Globe,
   Lock,
   Cpu,
-  Target,
-  Brain,
-  Fingerprint,
   Command,
   ArrowRight,
   ExternalLink,
   Copy,
   RefreshCw,
   Database,
-  MousePointer,
-  Heart
+  AlertCircle
 } from 'lucide-react'
 import axios from 'axios'
 import { db, auth } from '../../lib/firebase'
 import { collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore'
 import { onAuthStateChanged, User as FirebaseUser, signInAnonymously } from 'firebase/auth'
 
+// Updated interface without risk_score and analysis fields
 interface ScanResult {
   prediction: 'Fake' | 'Legit'
   confidence: number
   threat_level?: string
-  risk_score?: number
-  analysis?: {
-    domain_age?: string
-    ssl_status?: string
-    reputation_score?: number
-    malware_detected?: boolean
-    phishing_indicators?: string[]
-    suspicious_patterns?: string[]
-    redirect_chains?: number
-  }
 }
 
+// Updated Firebase record interface
 interface FirebaseLinkRecord {
   id: string
   url: string
   prediction: 'Fake' | 'Legit'
   confidence: number
   threat_level?: string
-  risk_score?: number
   timestamp: ReturnType<typeof serverTimestamp>
   user_id: string
 }
@@ -69,8 +55,9 @@ export default function LinkScannerPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null)
   const [firebaseHistory, setFirebaseHistory] = useState<FirebaseLinkRecord[]>([])
   const [localHistory, setLocalHistory] = useState<FirebaseLinkRecord[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  // Function to save scan to Firebase
+  // Function to save scan to Firebase (simplified)
   const saveToFirebase = async (url: string, scanResult: ScanResult) => {
     if (user) {
       try {
@@ -80,10 +67,8 @@ export default function LinkScannerPage() {
           prediction: scanResult.prediction,
           confidence: scanResult.confidence,
           threat_level: scanResult.threat_level,
-          risk_score: scanResult.risk_score,
           timestamp: serverTimestamp(),
-          user_id: user.uid,
-          analysis: scanResult.analysis
+          user_id: user.uid
         })
         console.log('Link scan result saved to Firebase')
       } catch (error) {
@@ -96,7 +81,6 @@ export default function LinkScannerPage() {
           prediction: scanResult.prediction,
           confidence: scanResult.confidence,
           threat_level: scanResult.threat_level,
-          risk_score: scanResult.risk_score,
           timestamp: new Date().toISOString(),
           user_id: user.uid
         }
@@ -112,7 +96,6 @@ export default function LinkScannerPage() {
         prediction: scanResult.prediction,
         confidence: scanResult.confidence,
         threat_level: scanResult.threat_level,
-        risk_score: scanResult.risk_score,
         timestamp: new Date().toISOString(),
         user_id: 'anonymous'
       }
@@ -147,7 +130,6 @@ export default function LinkScannerPage() {
             prediction: doc.data().prediction || 'Legit',
             confidence: doc.data().confidence || 0,
             threat_level: doc.data().threat_level,
-            risk_score: doc.data().risk_score,
             timestamp: doc.data().timestamp,
             user_id: doc.data().user_id || ''
           })) as FirebaseLinkRecord[]
@@ -203,6 +185,7 @@ export default function LinkScannerPage() {
     
     setIsScanning(true)
     setResult(null)
+    setError(null)
 
     try {
       // Try to call real API first
@@ -211,21 +194,11 @@ export default function LinkScannerPage() {
           url: link,
         })
         
-        // Process API response
+        // Process API response - simplified to only use confirmed fields
         const apiResult: ScanResult = {
           prediction: response.data.prediction === 'Safe' || response.data.prediction === 'Legit' ? 'Legit' : 'Fake',
           confidence: response.data.confidence || Math.random() * 30 + 70,
           threat_level: response.data.threat_level || (response.data.prediction === 'Safe' ? 'Low' : 'High'),
-          risk_score: response.data.risk_score || Math.floor(Math.random() * 100),
-          analysis: {
-            domain_age: response.data.analysis?.domain_age || 'Unknown',
-            ssl_status: response.data.analysis?.ssl_status || 'Unknown',
-            reputation_score: response.data.analysis?.reputation_score || Math.floor(Math.random() * 100),
-            malware_detected: response.data.analysis?.malware_detected || false,
-            phishing_indicators: response.data.analysis?.phishing_indicators || [],
-            suspicious_patterns: response.data.analysis?.suspicious_patterns || [],
-            redirect_chains: response.data.analysis?.redirect_chains || 0
-          }
         }
         
         setResult(apiResult)
@@ -233,40 +206,20 @@ export default function LinkScannerPage() {
         // Save to Firebase if user is authenticated
         await saveToFirebase(link, apiResult)
       } catch (apiError) {
-        // Fallback to smart analysis if API is not available
-        console.log('API not available, using local analysis:', apiError)
+        console.log('API not available, using local basic analysis:', apiError)
+        setError('The link analysis backend is currently unavailable. Using basic analysis instead.')
         
-        const isSuspicious = link.includes('.tk') || link.includes('.ml') || link.includes('.ga') || link.includes('.cf') || 
+        // Very simple local analysis - just checking for obvious scam keywords
+        const isSuspicious = link.includes('.tk') || link.includes('.ml') || link.includes('.ga') || 
                            link.toLowerCase().includes('scam') || link.toLowerCase().includes('phishing') || 
-                           link.toLowerCase().includes('urgent') || link.toLowerCase().includes('click') ||
-                           link.toLowerCase().includes('winner') || link.toLowerCase().includes('prize') ||
-                           link.toLowerCase().includes('free') || link.toLowerCase().includes('lottery') ||
-                           link.toLowerCase().includes('verify') || link.toLowerCase().includes('suspend') ||
-                           link.toLowerCase().includes('security') || link.toLowerCase().includes('alert')
+                           link.toLowerCase().includes('urgent') || link.toLowerCase().includes('prize') ||
+                           link.toLowerCase().includes('verify') || link.toLowerCase().includes('suspend')
         
+        // Simplified mock result without advanced analysis
         const mockResult: ScanResult = {
           prediction: isSuspicious ? 'Fake' : 'Legit',
-          confidence: isSuspicious ? Math.random() * 20 + 80 : Math.random() * 15 + 85, // Higher confidence for detection
-          threat_level: isSuspicious ? (link.includes('.tk') || link.includes('scam') ? 'High' : 'Medium') : 'Low',
-          risk_score: isSuspicious ? Math.floor(Math.random() * 40 + 60) : Math.floor(Math.random() * 30 + 10),
-          analysis: {
-            domain_age: isSuspicious ? (Math.random() > 0.7 ? '15 days' : '3 months') : '2+ years',
-            ssl_status: Math.random() > 0.3 ? 'Valid' : 'Invalid',
-            reputation_score: isSuspicious ? Math.floor(Math.random() * 30 + 10) : Math.floor(Math.random() * 30 + 70),
-            malware_detected: isSuspicious && Math.random() > 0.6,
-            phishing_indicators: isSuspicious ? [
-              'Suspicious domain extension',
-              'Unusual redirect patterns',
-              'Missing security headers',
-              'Unverified SSL certificate'
-            ] : [],
-            suspicious_patterns: isSuspicious ? [
-              'URL shortening detected',
-              'Typosquatting patterns',
-              'Social engineering keywords'
-            ] : [],
-            redirect_chains: isSuspicious ? Math.floor(Math.random() * 5 + 1) : 0
-          }
+          confidence: isSuspicious ? Math.random() * 20 + 80 : Math.random() * 15 + 85,
+          threat_level: isSuspicious ? 'Medium' : 'Low',
         }
         
         setResult(mockResult)
@@ -284,21 +237,13 @@ export default function LinkScannerPage() {
 
     } catch (err) {
       console.error('Error scanning link:', err)
-      // Show error state
+      setError('Failed to analyze the link. Please try again later.')
+      
+      // Simple error result
       const errorResult: ScanResult = {
-        prediction: 'Fake',
-        confidence: 0,
+        prediction: 'Fake', // Default to Fake for safety when errors occur
+        confidence: 50,
         threat_level: 'Unknown',
-        risk_score: 100,
-        analysis: {
-          domain_age: 'Unknown',
-          ssl_status: 'Error',
-          reputation_score: 0,
-          malware_detected: true,
-          phishing_indicators: ['Unable to analyze - treat as suspicious'],
-          suspicious_patterns: ['Analysis failed'],
-          redirect_chains: 0
-        }
       }
       setResult(errorResult)
       
@@ -311,7 +256,7 @@ export default function LinkScannerPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    // You can add a toast notification here
+    alert("Results copied to clipboard!")
   }
 
   const handleAnonymousLogin = async () => {
@@ -391,29 +336,25 @@ export default function LinkScannerPage() {
             </div>
             
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white mb-4 sm:mb-6 tracking-tight leading-tight">
-              Advanced{' '}
+              Basic{' '}
               <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
                 Link Scanner
               </span>
             </h1>
             
             <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-gray-300 max-w-xs sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto leading-relaxed px-4">
-              AI-powered URL analysis with real-time threat detection and comprehensive security assessment
+              Simple URL analysis to help identify potentially unsafe links
             </p>
 
-            {/* Status Indicators */}
+            {/* Status Indicators - Simplified */}
             <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-6 sm:mt-8 px-4">
-              <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-cyan-400/20">
-                <Brain className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400 animate-pulse" />
-                <span className="text-xs sm:text-sm text-gray-300">AI Analysis</span>
-              </div>
               <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-blue-400/20">
                 <Database className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
-                <span className="text-xs sm:text-sm text-gray-300">Threat Intel</span>
+                <span className="text-xs sm:text-sm text-gray-300">URL Checking</span>
               </div>
               <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-purple-400/20">
                 <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400 animate-pulse" />
-                <span className="text-xs sm:text-sm text-gray-300">Real-time</span>
+                <span className="text-xs sm:text-sm text-gray-300">Simple Analysis</span>
               </div>
               {user && (
                 <div className="flex items-center gap-2 bg-zinc-800/30 backdrop-blur-sm rounded-full px-3 sm:px-4 py-1.5 sm:py-2 border border-green-400/20">
@@ -438,14 +379,14 @@ export default function LinkScannerPage() {
                     <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
                       <LinkIcon className="w-5 h-5 text-white" />
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">URL Security Scanner</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white">URL Scanner</h2>
                   </div>
 
                   <div className="space-y-4">
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="Enter suspicious URL (e.g., https://example.com)"
+                        placeholder="Enter URL to check (e.g., https://example.com)"
                         className="w-full bg-zinc-900/50 border border-zinc-600/50 rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-white placeholder-gray-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 text-sm sm:text-base"
                         value={link}
                         onChange={(e) => setLink(e.target.value)}
@@ -468,7 +409,7 @@ export default function LinkScannerPage() {
                         ) : (
                           <>
                             <Zap className="w-5 h-5" />
-                            Scan URL
+                            Check URL
                             <ArrowRight className="w-4 h-4" />
                           </>
                         )}
@@ -486,7 +427,17 @@ export default function LinkScannerPage() {
                 </div>
               </div>
 
-              {/* Scan Results */}
+              {/* Error message if backend is not available */}
+              {error && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="text-amber-200">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Scan Results - Simplified */}
               {result && (
                 <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 sm:p-8 border border-zinc-700/50 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-red-500/5"></div>
@@ -504,7 +455,7 @@ export default function LinkScannerPage() {
                       <h3 className="text-xl sm:text-2xl font-bold text-white">Scan Results</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       {/* Threat Status */}
                       <div className={`p-4 sm:p-6 rounded-2xl border ${
                         result.prediction === 'Legit' ? 
@@ -512,7 +463,7 @@ export default function LinkScannerPage() {
                         'bg-red-500/10 border-red-500/30'
                       }`}>
                         <div className="flex items-center gap-2 mb-2">
-                          <Target className={`w-5 h-5 ${result.prediction === 'Legit' ? 'text-green-400' : 'text-red-400'}`} />
+                          <Shield className={`w-5 h-5 ${result.prediction === 'Legit' ? 'text-green-400' : 'text-red-400'}`} />
                           <span className="font-semibold text-white">Status</span>
                         </div>
                         <p className={`text-lg font-bold ${result.prediction === 'Legit' ? 'text-green-400' : 'text-red-400'}`}>
@@ -539,102 +490,21 @@ export default function LinkScannerPage() {
                           ></div>
                         </div>
                       </div>
-
-                      {/* Risk Score */}
-                      <div className="p-4 sm:p-6 rounded-2xl bg-purple-500/10 border border-purple-500/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Shield className="w-5 h-5 text-purple-400" />
-                          <span className="font-semibold text-white">Risk Score</span>
-                        </div>
-                        <p className="text-lg font-bold text-purple-400">
-                          {result.risk_score || 0}/100
-                        </p>
-                        <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
-                          <div 
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                              (result.risk_score || 0) > 70 ? 'bg-red-500' : 
-                              (result.risk_score || 0) > 40 ? 'bg-yellow-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${result.risk_score || 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
                     </div>
 
-                    {/* Additional Analysis */}
-                    {result.analysis && (
-                      <div className="mt-6 space-y-4">
-                        {/* Basic Analysis */}
-                        <div className="p-4 sm:p-6 bg-zinc-900/30 rounded-2xl border border-zinc-600/30">
-                          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-                            <Fingerprint className="w-5 h-5 text-purple-400" />
-                            Technical Analysis
-                          </h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-400">Domain Age:</span>
-                              <span className="text-white ml-2">{result.analysis.domain_age}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">SSL Status:</span>
-                              <span className={`ml-2 ${result.analysis.ssl_status === 'Valid' ? 'text-green-400' : 'text-red-400'}`}>
-                                {result.analysis.ssl_status}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Reputation Score:</span>
-                              <span className="text-white ml-2">{result.analysis.reputation_score}/100</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Malware:</span>
-                              <span className={`ml-2 ${result.analysis.malware_detected ? 'text-red-400' : 'text-green-400'}`}>
-                                {result.analysis.malware_detected ? 'Detected' : 'Clean'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Redirects:</span>
-                              <span className="text-white ml-2">{result.analysis.redirect_chains || 0} chains</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Threat Indicators */}
-                        {result.analysis.phishing_indicators && result.analysis.phishing_indicators.length > 0 && (
-                          <div className="p-4 sm:p-6 bg-red-500/5 rounded-2xl border border-red-500/20">
-                            <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-                              <AlertTriangle className="w-5 h-5 text-red-400" />
-                              Threat Indicators
-                            </h4>
-                            <div className="space-y-2">
-                              {result.analysis.phishing_indicators.map((indicator, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm text-red-400">
-                                  <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div>
-                                  {indicator}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Suspicious Patterns */}
-                        {result.analysis.suspicious_patterns && result.analysis.suspicious_patterns.length > 0 && (
-                          <div className="p-4 sm:p-6 bg-yellow-500/5 rounded-2xl border border-yellow-500/20">
-                            <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
-                              <Eye className="w-5 h-5 text-yellow-400" />
-                              Suspicious Patterns
-                            </h4>
-                            <div className="space-y-2">
-                              {result.analysis.suspicious_patterns.map((pattern, index) => (
-                                <div key={index} className="flex items-center gap-2 text-sm text-yellow-400">
-                                  <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></div>
-                                  {pattern}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* Explanation of Results */}
+                    <div className="mt-6 p-4 sm:p-6 bg-zinc-900/30 rounded-2xl border border-zinc-600/30">
+                      <h4 className="font-semibold text-white mb-3">What This Means</h4>
+                      {result.prediction === 'Legit' ? (
+                        <p className="text-sm text-gray-300">
+                          This URL appears to be legitimate based on our basic analysis. However, always exercise caution when clicking on links from unknown sources.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-300">
+                          This URL has been flagged as potentially dangerous. It may be attempting to steal information or distribute malware. We recommend avoiding this link.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -651,15 +521,17 @@ export default function LinkScannerPage() {
                 </h3>
                 <div className="space-y-3">
                   <button 
-                    onClick={() => result && copyToClipboard(`URL: ${link}\nStatus: ${result.prediction}\nConfidence: ${result.confidence.toFixed(1)}%\nRisk Score: ${result.risk_score}/100`)}
-                    className="w-full bg-zinc-700/50 hover:bg-zinc-600/50 text-white rounded-xl px-4 py-3 transition-all duration-300 flex items-center gap-2 text-sm"
+                    onClick={() => result && copyToClipboard(`URL: ${link}\nStatus: ${result.prediction}\nConfidence: ${result.confidence.toFixed(1)}%\nThreat Level: ${result.threat_level || 'Low'}`)}
+                    disabled={!result}
+                    className="w-full bg-zinc-700/50 hover:bg-zinc-600/50 disabled:bg-zinc-800/50 disabled:text-zinc-500 text-white rounded-xl px-4 py-3 transition-all duration-300 flex items-center gap-2 text-sm"
                   >
                     <Copy className="w-4 h-4" />
                     Copy Results
                   </button>
                   <button 
                     onClick={() => window.open(link, '_blank')}
-                    className="w-full bg-zinc-700/50 hover:bg-zinc-600/50 text-white rounded-xl px-4 py-3 transition-all duration-300 flex items-center gap-2 text-sm"
+                    disabled={!link}
+                    className="w-full bg-zinc-700/50 hover:bg-zinc-600/50 disabled:bg-zinc-800/50 disabled:text-zinc-500 text-white rounded-xl px-4 py-3 transition-all duration-300 flex items-center gap-2 text-sm"
                   >
                     <ExternalLink className="w-4 h-4" />
                     View URL
@@ -688,7 +560,7 @@ export default function LinkScannerPage() {
                 <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 border border-zinc-700/50">
                   <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-400" />
-                    Recent Scans {user ? <span className="text-xs text-cyan-400">(Firebase)</span> : <span className="text-xs text-yellow-400">(Local)</span>}
+                    Recent Scans {user ? <span className="text-xs text-cyan-400">(Cloud)</span> : <span className="text-xs text-yellow-400">(Local)</span>}
                   </h3>
                   <div className="space-y-2">
                     {user ? (
@@ -710,8 +582,6 @@ export default function LinkScannerPage() {
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span>Confidence: {scan.confidence.toFixed(1)}%</span>
-                            <span>•</span>
-                            <span>Risk: {scan.risk_score || 0}/100</span>
                           </div>
                         </div>
                       ))
@@ -734,8 +604,6 @@ export default function LinkScannerPage() {
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span>Confidence: {scan.confidence.toFixed(1)}%</span>
-                            <span>•</span>
-                            <span>Risk: {scan.risk_score || 0}/100</span>
                           </div>
                         </div>
                       ))
@@ -756,42 +624,56 @@ export default function LinkScannerPage() {
                 </div>
               )}
 
-              {/* Security Features */}
+              {/* Security Features - Updated to be more honest */}
               <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 border border-zinc-700/50">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-green-400" />
-                  Security Features
+                  Current Features
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Eye className="w-4 h-4 text-cyan-400" />
-                    Real-time analysis
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                    <span>Basic URL scanning</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Lock className="w-4 h-4 text-blue-400" />
-                    Privacy protected
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                    <span>Simple legitimacy check</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Brain className="w-4 h-4 text-purple-400" />
-                    AI-powered detection
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                    <span>Scan history storage</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Database className="w-4 h-4 text-pink-400" />
-                    Global threat database
+                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                    <span>Cloud sync for registered users</span>
                   </div>
                 </div>
               </div>
-
-              {/* Trust Indicators */}
-              <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 border border-zinc-700/50 text-center">
-                <Heart className="w-8 h-8 text-pink-400 mx-auto mb-3 animate-pulse" />
-                <p className="text-sm text-gray-300 mb-2">Trusted by</p>
-                <p className="text-xl font-bold text-cyan-400">50+ Users</p>
-                <div className="flex justify-center gap-1 mt-2">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                  ))}
-                </div>
+              
+              {/* Development Status */}
+              <div className="bg-amber-500/10 backdrop-blur-sm rounded-3xl p-6 border border-amber-500/30">
+                <h3 className="text-lg font-bold text-amber-400 mb-3">In Development</h3>
+                <p className="text-sm text-amber-200 mb-4">
+                  We're working on enhancing the link scanner with these advanced features:
+                </p>
+                <ul className="space-y-2">
+                  <li className="text-xs text-amber-200/80 flex items-start gap-2">
+                    <div className="w-1 h-1 bg-amber-400 rounded-full mt-1.5"></div>
+                    <span>Advanced domain reputation analysis</span>
+                  </li>
+                  <li className="text-xs text-amber-200/80 flex items-start gap-2">
+                    <div className="w-1 h-1 bg-amber-400 rounded-full mt-1.5"></div>
+                    <span>SSL certificate validation</span>
+                  </li>
+                  <li className="text-xs text-amber-200/80 flex items-start gap-2">
+                    <div className="w-1 h-1 bg-amber-400 rounded-full mt-1.5"></div>
+                    <span>Malware detection capabilities</span>
+                  </li>
+                  <li className="text-xs text-amber-200/80 flex items-start gap-2">
+                    <div className="w-1 h-1 bg-amber-400 rounded-full mt-1.5"></div>
+                    <span>Risk scoring system</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>

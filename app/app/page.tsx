@@ -70,7 +70,7 @@ export default function HomePage() {
   ]
 
   const stats = [
-    { number: "50+", label: "URLs Scanned", icon: Search },
+    { number: "2+", label: "URLs Scanned", icon: Search },
     { number: "231+", label: "Threats Blocked", icon: Shield },
     { number: "99.9%", label: "Accuracy Rate", icon: Target },
     { number: "24/7", label: "Protection", icon: Clock }

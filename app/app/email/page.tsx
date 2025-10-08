@@ -561,7 +561,7 @@ export default function EmailScannerPage() {
               <div className="bg-zinc-800/30 backdrop-blur-sm rounded-3xl p-6 border border-zinc-700/50 text-center">
                 <Heart className="w-8 h-8 text-pink-400 mx-auto mb-3 animate-pulse" />
                 <p className="text-sm text-gray-300 mb-2">Protected emails</p>
-                <p className="text-xl font-bold text-cyan-400">50+ Analyzed</p>
+                <p className="text-xl font-bold text-cyan-400">2+ Analyzed</p>
                 <div className="flex justify-center gap-1 mt-2">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="w-2 h-2 bg-yellow-400 rounded-full"></div>
